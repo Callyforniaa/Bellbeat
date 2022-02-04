@@ -1,0 +1,381 @@
+---
+title: "Bellabeat Analysis"
+author: "Allysun Rapp"
+date: "2/1/2022"
+output: 
+  html_document:
+    rmdformats::readthedown
+---
+<style>
+
+h1.title, h1.title p {
+    font-size: 2.3rem;
+    line-height: 3.7rem;
+    border-bottom: 4px solid #152329;
+    width: 400px
+}
+
+h1.title {
+    margin-top: 0em;
+}
+
+h1 {
+    margin-top: 0em;
+    margin-top: 0em;
+    margin-top: 1em;
+    margin-bottom: 0.2em;
+}
+h2 {
+    margin-top: 0em;
+    margin-bottom: 0.5em;
+    font-size: 1.5rem;
+    color: #0c695d !important;
+}
+
+h4 {
+    margin-top: 0.5em;
+    margin-bottom: 0.2em;
+    font-size: 1.15rem;
+}
+
+#main table {
+border-collapse: collapse;
+border-style: hidden;
+}
+
+#main table thead th {
+    font-weight: bold;
+    border-top: 0px solid #ddd !important;
+    border-bottom: 1px solid #ddd;
+    background-color: #2d8e87 !important;
+    color: white;
+}
+
+#main table:not(.dataTable) td, #main table:not(.dataTable) th {
+    font-size: 90%;
+    padding: 8px;
+    margin: 0;
+    overflow: visible;
+    border-right: 1px solid lightgrey;
+    border-left: 1px solid lightgrey;
+    border-bottom: 0px;
+    border-top: 0px;
+}
+
+#main ol li, #content ol li, article ol li {
+    list-style: decimal;
+    margin-left: 40px;
+}
+
+#postamble {
+    color: #fcfcfc;
+    background: transparent;
+    border-top: dotted white;
+    font-family: "Lato","proxima-nova","Helvetica Neue",Arial,sans-serif;
+    font-size: 90%;
+    z-index: 400;
+    padding-left: 12px;
+    padding-bottom: 5px;
+    padding-top: 5px;
+}
+
+@media screen and (min-width: 768px)
+#postamble {
+    left: 0;
+    width: 250px;
+}
+
+#main a:link {
+  color: #5A7B9C;
+}
+
+#main a:visited {
+  color: #095484;
+}
+
+#main a:hover {
+  color: #8ebf42;
+}
+
+#main a:active {
+  color: #716464;
+}
+
+#content {
+  background-color: #E0F2F2;
+  width: 750px;
+  position: relative;
+  right: 100px;
+}
+
+.title {
+  color: #0C695D;
+}
+
+h1, h2, h3, h4, h5, h6, legend {
+    font-family: "Roboto Slab","ff-tisa-web-pro","Georgia",Arial,sans-serif;
+    font-weight: 700;
+    color: #2D8E87;
+}
+
+#sidebar {
+    background-image: linear-gradient(#37AFA9, #0C695D);
+    width: 200px;
+}
+
+#sidebar h2 {
+    background-color: transparent;
+    height: 65px;
+    font-size: 25px;
+    border-bottom-style: dotted;
+    padding: 5px;
+}
+
+#sidebar a:link {
+  color: #FFFFFF;
+}
+
+blockquote {
+    background-color: #FFFFFF;
+    border: 2px solid #0C695D;
+    font-style: normal;
+    margin: 20px 10px 24px 40px;
+    padding: 11px 20px 20px 20px;
+    width: 550px;
+}
+
+</style>
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+library(tidyverse)
+library(here)
+library(skimr)
+library(janitor)
+library(dplyr)
+library(readr)
+library(lubridate)
+library(chron)
+library(scales)
+library(rmdformats)
+
+### Processing and Cleaning the Data Sets
+#### Daily Activity
+##### Reading the Data In
+dailyActivity <- read_csv("Fitabase Data 4.12.16-5.12.16/dailyActivity_merged.csv")
+
+dailySleep <- read_csv("Fitabase Data 4.12.16-5.12.16/sleepDay_merged.csv")
+
+##### Combining Daily Sleep and Daily Activity Data
+dailySleep <- dailySleep %>%
+  rename(ActivityDate = SleepDay)
+dailySleep$ActivityDate <- as.Date(dailySleep$ActivityDate, format="%m/%d/%Y") 
+dailyActivity$ActivityDate <- as.Date(dailyActivity$ActivityDate, format="%m/%d/%Y")
+
+dailyActivity1 <- merge(dailyActivity, dailySleep, by = c("Id", "ActivityDate"), all=TRUE)
+
+##### Cleaning the Combined Data
+clean.da1 <- clean_names(dailyActivity1)
+
+clean.da2 <- distinct(clean.da1)
+
+clean.da2$id <- as.character(clean.da2$id)
+  
+#### Hourly Activity
+##### Reading the Data In
+hourlyCal <- read_csv("Fitabase Data 4.12.16-5.12.16/hourlyCalories_merged.csv")
+
+hourlySteps <- read_csv("Fitabase Data 4.12.16-5.12.16/hourlySteps_merged.csv")
+
+##### Combining Hourly Calories, Hourly Intensity, and Hourly Steps Data
+hourlyActivity1 <- merge(hourlyCal, hourlySteps, by = c("Id", "ActivityHour"))
+
+##### Cleaning the Combined Data
+clean.ha <- clean_names(hourlyActivity1)
+
+clean.ha1 <- distinct(clean.ha)
+
+clean.ha1$id <- as.character(clean.ha1$id)
+
+clean.ha2 <- separate(clean.ha1,
+                      activity_hour,
+                      c("date", "time"), 
+                      sep = " ",
+                      extra = "merge")
+clean.ha2$time <- format(strptime(clean.ha2$time, format = "%I:%M:%S %p"), 
+                         "%H:%M:%S")
+  
+#### Heart Rate (Seconds)
+##### Reading the Data In
+secHR <- read_csv("Fitabase Data 4.12.16-5.12.16/heartrate_seconds_merged.csv")
+
+##### Cleaning the Data
+clean.hr <- clean_names(secHR)
+
+clean.hr2 <- distinct(clean.hr)
+
+clean.hr$id = as.character(clean.hr$id)
+  
+#### Weight Log
+##### Reading the Data In
+WeightLog <- read_csv("Fitabase Data 4.12.16-5.12.16/weightLogInfo_merged.csv")
+
+##### Cleaning the Data
+clean.wl <- clean_names(WeightLog)
+
+clean.wl$id = as.character(clean.wl$id)
+
+clean.wl0 <- separate(clean.wl,
+                      date,
+                      c("date", "time"), 
+                      sep = " ",
+                      extra = "merge")
+clean.wl1 <- subset(clean.wl0, select = -c(3))
+
+clean.wl1$date <- as.Date(clean.wl1$date, format="%m/%d/%Y") 
+
+clean.wl2 <- distinct(clean.wl1)
+```
+# Business Task
+The goal of this data analysis is to explore and identify how consumers use non-Bellabeat smart devices, how these usage trends may apply to Bellbeat users, and how these insights can help improve marketing strategies for the company.
+
+>#### Main questions:  
+>
+1. How do consumers use non-Bellabeat smart devices?  
+2. Are there certain days/times when smart device users are more active (measured by the number of steps taken per day and per hour)?  
+3. How did device usage change over time (measured by the number of unique participant entries by a per day)?  
+4. How might FitBit trends apply to Bellbeat users?  
+5. How can these trends be used to improve Bellabeat marketing strategies?
+
+# Data Source and Limitations
+## Data Source
+[FitBit Fitness Tracker Data](https://www.kaggle.com/arashnic/fitbit) (CC0: public domain, available from Kaggle user Mobius) including the subsets:
+ 
+1. dailyActivity_merged
+2. hourlyCalories_merged
+3. hourlySteps_merged
+4. sleepDay_merged
+5. heartrate_seconds_merged
+6. weightLogInfo_merged
+
+## Data Limitations
+The following criteria were used to evaluate the data set. The criteria are color-coded to represent whether or not each is satisfied--green indicates that the criterion is satisfied, yellow indicates it is partially satisfied, and red indicates it is not satisfied. 
+
+Criteria | Description
+------|-------------------------
+<span style="color: #bf9000">**Reliability**</span> | The data may be biased. The data was collected from 30 “eligible” fitbit users who consented to have their information collected and shared. The users were selected by their response to a survey that was distributed between 03/12/2016 and 05/12/2016; However, data collected is from 04/12/2016 thru 05/09/2016. There is not other information on whether or not the participants were selected at random, or what made them an “eligble” user. Therefore, the sample may not be representative of the total population of interest.
+<span style="color: #38761d">**Originality**</span>  | The data is original. All data was collected directly by FitBit users in an Amazon Mechanical Turk survey. 
+<span style="color: #990000">**Comprehensiveness**</span> | The data is not comprehensive. Since Bellabeat is targeting an all-female audience, it is important to know the sex of the FitBit users in this data source to understand if the population being analyzed is representative of the population of interest. However, the dataset does not include demographic information such as gender, and thus the data is not comprehensive enough to fully address the business questions. Additionally, the data set reports "distance" but does not specify a unit of measurement (i.e. miles, kilometers, etc). For this reason, distance data was omitted from the data analysis. 
+<span style="color: #990000">**Currency**</span> | The data was collected between 04/12/2016 and 05/09/2016, almost 6 years ago. The data is out-of-date and may not be relevant to the current trends in smart device usage; This is a major limitation of this data set.
+<span style="color: #38761d">**Citations**</span> | The data is cited and [linked](https://zenodo.org/record/53894#.YfXLGerMI2x). Original data authors are Robert Furberg, Julia Brinton, Michael Keating, and Alexa Ortiz. 
+
+# Data Cleaning and Manipulation
+RStudio was used to clean and manipulate the FitBit Fitness Tracker data set due to the size and complexity of the data set. The complete code can be found [here](https://github.com/Callyforniaa/Bellabeat/blob/main/bellabeat_analysis.R).
+
+The data subsets listed above were merged into 4 combined data frames. 
+Some variables were manipulated to improve consistency of the data frames. A summary of the changes made can be found below. 
+
+Combined Data Frame | Original Data Subset(s) | Removed or Changed Variables | Final Variables Analyzed 
+-----|-------|--------|--------
+**Daily Activity** | dailyActivity_merged <br> sleepDay_merged | Total distance <br> Tracker distance <br> Logged activities distance <br> Very active distance <br> Moderately active distance <br> Light active distance <br> Sedentary Active Distance <br> Very active minutes <br> Fairly active minutes <br> Lightly active minutes <br> Total sleep records <br> Sleep day (merged with activity date)| ID <br> Activity date <br> Total number of steps <br> Sedentary minutes <br> Calories burned <br> Total minutes asleep <br> Total time in bed
+**Hourly Activity** | hourlyCalories_merged <br> hourlyIntensity_merged <br> hourlySteps_merged | All variables retained | ID <br> Date <br> Time <br> Total number of steps
+**Heart Rate** | heart_rate_seconds_merged | All variables retained | ID <br> Time (including Date) <br> Heart Rate ("value")
+**Weight Log** | weightLogInfo_merged | Weight (kg) <br> Weight (lbs) <br> Fat <br> Is manually reported (True/False) <br> LogID | ID <br> Date <br> BMI
+
+# Analysis Summary
+This table gives a quick overview of the analysis results for each data frame. More details on the significant findings from the analysis (including visualizations) can be found in the following sections.
+
+Data frame | # Participants | # Entries | Summary Statistics | Quick Conclusion
+----------|-------------|---------|---------------------|----------------------
+**Daily Activity** | 33 | 940 | **Avg steps / day**: 7,638 <br> **Avg sedentary minutes / day**: 991.2 (~16.52 hours) <br> **Avg calories burned / day**: 2,394 <br> **Avg minutes asleep / day**: 419.2 (~6.99 hours) <br> **Avg minutes in bed / day**: 526.0 (~8.77 hours) | - Saturday and Tuesday are the most active days; Sunday is the least. <br> - The number of daily entries declined over time. <br> - On average, participants spent about 107 minutes (~1 hour and 47 minutes) awake in bed per day.
+**Hourly Activity** | 33 | 22,099 | **Avg steps / hour**: 320 <br> **Avg calories burned / hour**: 320 | - More steps are taken during daylight hours (~8:00AM to 8:00PM), with a lull around 2:00PM. <br> - Very few steps are taken before 5:00AM. 
+**Heart Rate** | 14 | 2,483,658 | **Avg heart rate**: 77.3 bpm | - The average heart rate for participants is within the normal range. <br> - No significant findings.
+**Weight Log** | 8 | 67 | **Avg BMI**: 25.19 (healthy) <br> **Min BMI**: 21.45 (healthy) <br> **Max BMI**: 47.54 (morbidly obese) | - The maximum BMI may be an incorrect data point. It is linked to a participant ID that only appears once in the data set, suggesting the participant's device may have had a faulty weight/BMI reading and thus use of this feature was coscontinued by the participant. <br> - After removing the outlier, the new max BMI is 28 (healthy), indicating all participants were already a healthy size before the study began. <br> - No other significant findings.
+
+## Daily Activity
+#### Average Steps by Day of the Week
+```{r, echo=FALSE, results='hide', message=FALSE}
+day <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
+         "Saturday", "Sunday")
+day.f <- factor(day, levels = day)
+levels(day.f)
+clean.da2$weekday <- weekdays(clean.da2$activity_date) %>%
+  factor(day, levels = day.f)
+wkday.avg.steps <- aggregate(total_steps ~ weekday, data = clean.da2, mean)
+ggplot(wkday.avg.steps, aes(weekday, total_steps)) + 
+  geom_col(color = "#0c695d", fill = "#0c695d") +
+  labs(x = "Day of the Week", y = "Average Steps per Day") +
+  theme(plot.background = element_rect(fill = "#E0F2F2"),
+      axis.title = element_text(color = "#404040"),
+      panel.background = element_rect(fill = "white"),
+      panel.grid.major = element_line(color = "lightgrey"),
+      axis.text.x = element_text(angle = 45))
+```
+
+**Finding**: Saturday is the most active day (average of 8,153 steps), followed closely by Tuesday (average of 8,125 steps). Sunday is the least active day (average of 6,933 steps). On average, participants took about 6.7% more steps on Saturday than the rest of the week. For Sunday, participants took about 9.2% fewer steps.
+<br>
+
+#### Number of Entries per Day
+```{r, echo = FALSE, results = "hide", message = FALSE}
+num.entries <- clean.da2 %>%
+  group_by(activity_date)%>%
+  summarize(n=n())
+ggplot(num.entries, aes(x = activity_date, y= n)) + geom_col(color = "#FFFFFF", 
+    fill = "#0c695d") + scale_y_continuous(breaks= pretty_breaks()) +
+  geom_smooth(color = "black") + labs(x = "Date", y = "Number of Entries") +
+  theme(plot.background = element_rect(fill = "#E0F2F2"),
+        axis.title = element_text(color = "#404040"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "lightgrey"),
+        axis.text.x = element_text(angle = 45))
+```
+
+**Finding**: The number of daily entries declined as the study went on, suggesting some participants were using their devices less over time. The decline was most noticeable during the 5th week of the data collection period.
+
+
+## Hourly Activity
+#### Average Steps per Hour
+```{r, echo = FALSE, results = "hide", message = FALSE}
+avg.steps <- aggregate(step_total ~ time, data = clean.ha2, mean)
+ggplot(data=avg.steps, aes(x = time, y= step_total)) + 
+  geom_col(color = "#FFFFFF", fill = "#0c695d") +
+  labs(x = "Time", y = "Average Steps") +
+  theme(plot.background = element_rect(fill = "#E0F2F2"),
+        axis.title = element_text(color = "#404040"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "lightgrey"),
+        axis.text.x = element_text(angle = 45))
+```
+
+**Finding**: More steps are taken during daylight hours (~8:00AM to 8:00PM), with a lull in activity around 2:00 PM. Very few steps are taken between 12:00AM and 5:00AM. 
+
+## Heart Rate and Weight Log
+The heart rate and weight log data frames were analyzed, but no meaningful trends were identified. See [the full code](https://github.com/Callyforniaa/Bellabeat/blob/main/bellabeat_analysis.R) for more detail. 
+
+# Key Findings 
+>#### How Participants Used FitBit
+* **Some users may have more than one device.** <br>
+There were 30 participants in the study but 33 participant IDs, suggesting some participants used more than one device.
+* **Not all participants used every feature.** <br>
+Overall, the weight log was the least used feature, with only 8 participants (24%) reporting their data. Other features with limited data were daily sleep tracking (24 participants, 73%) and heart rate measurements (14 participants, 42%).
+* **Participants may use the device less over time.** <br>
+The number of daily activity entries slightly declines as time goes on, suggesting participants may have been using their devices less frequently. The decline was most noticeable during week 5. <br>
+
+>#### Participant Behaviors Recorded by FitBit
+* **On average, participants slept 6.99 hours.**<br>
+They also spent about 39 extra  minutes in bed while not sleeping.
+* **All participants reported a healthy BMI.** <br>
+The average BMI for participants was 25.19.
+* **Saturday and Tuesday are the most active days. Sunday is the least.** <br>
+Compared to the rest of the week, participants took about 6.7% and 6.4% more steps on Saturday and Tuesday, respectively; They took 9.2% fewer steps on Sunday.
+* **Participants were most active during daylight hours.** <br> 
+The most steps per hour were taken between 8:00 AM and 8:00PM, with a lull around 2:00PM (siesta!!!). The least steps per hours were taken from 12:00AM to 5:00AM. <br>
+
+# Recommendations
+>#### Based on what we learned, we should: 
+1. Market the different Bellabeat devices as a system. This encourages users to purchase multiple products that work together to provide a complete picture of their health/fitness. 
+2. Focus our marketing on the more popular features that Bellbeat also offers, such as step and calorie counts. <br>
+3. Use qualitative methods to explore why FitBit users don’t use certain features such as the weight log, heart rate, and sleep tracker (i.e. are they inaccurate, do they require manual logs, are the devices uncomfortable to sleep in? Do customers typically use the time they sleep to charge their device? etc.) 
+4. Use these qualitative findings to improve Bellabeat features and solve the issues that FitBit users identified for their own devices. This can give us a competitive edge. 
+5. Develop strategies to encourage continued use of Bellabeat devices. For example, focus on developing updates that offer new features for our customers, or simply providing prompts to continue use directly from the device. 
+4. Consider expanding our marketing to target other populations (i.e. overweight) that are not as prominent in the FitBit community.
+5. Consider peak activity days and hours to ensure the software is providing prompts that are appropriately timed and useful for our users.
